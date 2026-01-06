@@ -1,4 +1,4 @@
-# Voz <-> ChatGPT (Whisper + ChatGPT + gTTS) — Exemplo funcional
+# Voz <-> ChatGPT (Whisper + ChatGPT + gTTS) — Exemplo funcional com módulo financeiro
 
 Este repositório é um esqueleto funcional de uma API que:
 - recebe áudio (wav/mp3/m4a),
@@ -7,73 +7,76 @@ Este repositório é um esqueleto funcional de uma API que:
 - sintetiza a resposta com gTTS (Google Text-to-Speech),
 - retorna transcrição, resposta e áudio em base64.
 
-Aviso: este projeto é um exemplo educativo. Ajuste limites, segurança e registros antes de produção.
+Extensão: Relationship Finance Agent
+- Integra funcionalidades voltadas a relacionamento financeiro: FAQ inteligente, simulações financeiras (empréstimos, poupança, parcelamento), persistência simples de contexto por sessão/usuário e regras básicas de segurança.
 
-## Arquivos principais
-- app/main.py — API FastAPI
-- app/asr.py — integração com Whisper (OpenAI)
-- app/chat.py — cliente ChatGPT
-- app/tts.py — wrapper gTTS
-- app/utils.py — helpers (conversão de áudio)
-- tests/ — testes com pytest
-- requirements.txt — dependências
-- Dockerfile / docker-compose.yml
+Novos recursos adicionados (resumo)
+- Endpoints financeiros (APIs REST) para:
+  - cálculos financeiros demonstrativos (/api/v1/finance/calculate),
+  - FAQ inteligente via LLM e base local (/api/v1/finance/faq),
+  - fluxo unificado que combina voz + contexto financeiro (/api/v1/finance/converse) — opcional.
+- Persistência leve (SQLite) para sessão/ histórico (session_id).
+- Modelos Pydantic e testes unitários para cálculos.
+- Prompts e proteções para evitar aconselhamento financeiro impróprio (system prompts & disclaimers).
 
-## Requisitos
-- Python 3.10+
-- ffmpeg instalado no sistema (ou via Docker)
-- Chave de API OpenAI
+Novos endpoints (especificação resumida)
 
-## Variáveis de ambiente
-Crie um arquivo `.env` (ou exporte) com:
-- OPENAI_API_KEY=seu_token_openai
-- OPENAI_CHAT_MODEL=gpt-4o-mini  # opcional, default definido no código
-- TTS_DEFAULT_LANG=pt  # default para gTTS (pt, en, es, ...)
+POST /api/v1/finance/calculate
+- Body (application/json):
+  {
+    "type": "loan" | "savings" | "installment",
+    "params": { ... }  // ver exemplos abaixo
+  }
+- Response:
+  {
+    "result": { ... },
+    "explanation": "texto explicando"
+  }
 
-Arquivo de exemplo: `.env.example` neste repositório.
+Exemplo: simulação de empréstimo
+- type: "loan"
+- params: { "principal": 10000, "annual_rate_pct": 12, "term_months": 24, "compounding": "monthly" }
 
-## Instalação local (recomendado para desenvolvimento)
-1. Crie venv e instale dependências:
-   python -m venv .venv
-   source .venv/bin/activate
-   pip install -r requirements.txt
+POST /api/v1/finance/faq
+- Body:
+  { "question": "Qual a diferença entre CDB e poupança?" }
+- Response:
+  { "answer": "..." }
+- Implementação: consulta local (Markdown/JSON) + fallback para LLM com prompt controlado.
 
-2. Instale ffmpeg (sistema). No Debian/Ubuntu:
-   sudo apt update && sudo apt install -y ffmpeg
+POST /api/v1/finance/converse
+- Integra com /api/v1/converse (voz) → detecta intenção (FAQ vs cálculo) e roteia para finance/calculate ou ChatGPT. Mantém contexto por session_id.
 
-3. Rode a API:
-   export OPENAI_API_KEY="sk-..."
-   uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+Banco de dados / persistência
+- Arquivo SQLite simples (por default ./data/app.db)
+- Tabelas: sessions (id TEXT PRIMARY KEY, created_at, updated_at, data JSON), optional users/profiles
 
-4. Exemplo curl:
-   curl -X POST "http://localhost:8000/api/v1/converse" \
-     -F "audio=@./samples/sample_pt.mp3" \
-     -F "language=pt"
+Variáveis de ambiente novas/alteradas
+- DB_PATH=./data/app.db
+- FINANCE_FAQ_PATH=./data/finance_faq.json  (base de conhecimento)
+- FINANCE_TRUSTED_ORGS (opcional) — políticas
 
-## Docker
-Construir e subir:
-   docker compose up --build
+Como rodar (além do já existente)
+1. Criar DB inicial (script init_db será fornecido).
+2. Popule ./data/finance_faq.json com perguntas/respostas (opcional).
+3. Executar servidor (mesma instrução do principal).
 
-## Uso da API
-POST /api/v1/converse
-- multipart/form-data:
-  - `audio` — arquivo
-  - `language` (opcional) — hint de idioma ex: `pt`, `en`, `es`
-  - `session_id` (opcional)
+Testes
+- pytest cobrirá: funções de cálculo, validação de entrada e rotas principais.
+- Tests usam valores conhecidos (fórmulas de juros simples/compostos, PMT para empréstimos).
 
-Resposta JSON:
-{
-  "transcription": "...",
-  "language": "pt",
-  "chat_response": "...",
-  "tts_audio_base64": "....",
-  "tts_audio_format": "mp3"
-}
+Boas práticas / Segurança
+- Exibir disclaimer em respostas financeiras: "Esta simulação é apenas demonstrativa e não substitui aconselhamento financeiro profissional."
+- Não solicitar nem armazenar dados sensíveis (número de conta, CPF) sem criptografia e políticas de conformidade.
+- Rate-limiting em endpoints de ChatGPT para evitar abuso e custos.
+- Sanitização de inputs numéricos e limites máximos (ex: principal <= 1e8).
 
-## Testes
-pytest
+Critérios de avaliação (financeiro)
+- Correção dos cálculos (exatidão matemática).
+- Clareza das explicações (linguagem simples).
+- Persistência de contexto por sessão (se implementada).
+- Testes unitários cobrem casos típicos e limites.
+- Prompt engineering e medidas de segurança.
 
-## Observações
-- O código usa a API de transcrição da OpenAI (modelo `whisper-1`). Se preferir o pacote local de Whisper, substitua `app/asr.py`.
-- gTTS pode exigir internet. Para TTS robusto/produção, considere Google Cloud TTS ou outro serviço pago.
-- Não comite chaves de API.
+Próximo passo
+- Se quiser, eu gero os arquivos iniciais (esqueleto + testes) automaticamente no repositório. Quer que eu gere agora?
