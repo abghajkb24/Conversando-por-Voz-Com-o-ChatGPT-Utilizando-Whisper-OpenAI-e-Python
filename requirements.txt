@@ -1,0 +1,11 @@
+fastapi
+uvicorn[standard]
+python-multipart
+openai
+pydub
+gTTS
+python-dotenv
+aiofiles
+pytest
+httpx
+pytest-asyncio
