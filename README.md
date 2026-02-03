@@ -77,6 +77,3 @@ Critérios de avaliação (financeiro)
 - Persistência de contexto por sessão (se implementada).
 - Testes unitários cobrem casos típicos e limites.
 - Prompt engineering e medidas de segurança.
-
-Próximo passo
-- Se quiser, eu gero os arquivos iniciais (esqueleto + testes) automaticamente no repositório. Quer que eu gere agora?
